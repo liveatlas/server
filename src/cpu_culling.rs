@@ -60,10 +60,14 @@ impl BlockPos {
 
 pub fn exposed(all: HashSet<BlockPos>) -> HashSet<BlockPos> {
     // TODO: convert this into Union-Find (crate named `petgraph` has its implementation)
-    let mut y = all.clone();
-    y.retain(|it| all.contains(&it.up()) && all.contains(&it.down()) && all.contains(&it.west()) && all.contains(&it.east()) && all.contains(&it.north()) && all.contains(&it.south()));
+    let mut res = all;
+    // returning true implies to be kept, false implies to be removed
+    res.retain(|it| {
+        let remove = all.contains(&it.up()) && all.contains(&it.down()) && all.contains(&it.west()) && all.contains(&it.east()) && all.contains(&it.north()) && all.contains(&it.south());
+        !remove
+    });
 
-    y
+    res
 }
 
 #[cfg(test)]
