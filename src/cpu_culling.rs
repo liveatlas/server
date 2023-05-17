@@ -1,7 +1,7 @@
 //! CPU-culling, using Union-Find
 use std::collections::HashSet;
 
-#[derive(Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 pub struct BlockPos {
     x: i32,
     y: i16,
@@ -20,7 +20,7 @@ impl BlockPos {
     pub fn down(self) -> Self {
         Self {
             x: self.x,
-            y: self.y + 1,
+            y: self.y - 1,
             z: self.z,
         }
     }
@@ -108,5 +108,41 @@ mod tests {
         for x in &[up, down, north, south, east, west] {
             assert!(result.contains(x));
         }
+    }
+
+    #[test]
+    fn up_and_down_are_dual() {
+        // TODO: should be chosen randomly
+        let x = BlockPos {
+            x: 39,
+            y: 26,
+            z: 16
+        };
+
+        assert_eq!(x.up().down(), x);
+    }
+
+    #[test]
+    fn south_and_north_are_dual() {
+        // TODO: should be chosen randomly
+        let x = BlockPos {
+            x: 99,
+            y: 91,
+            z: 0
+        };
+
+        assert_eq!(x.south().north(), x);
+    }
+
+    #[test]
+    fn west_and_east_are_dual() {
+        // TODO: should be chosen randomly
+        let x = BlockPos {
+            x: 128,
+            y: 15,
+            z: 19
+        };
+
+        assert_eq!(x.west().east(), x);
     }
 }
