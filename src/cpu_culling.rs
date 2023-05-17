@@ -13,7 +13,7 @@ impl BlockPos {
         Self {
             x: self.x,
             y: self.y + 1,
-            z: self.z + 1,
+            z: self.z,
         }
     }
 
