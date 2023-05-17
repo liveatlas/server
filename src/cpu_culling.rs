@@ -8,66 +8,88 @@ pub struct BlockPos {
     z: i32,
 }
 
+// NOTE for IntelliJ user: "method is private" on `overflowing_add` method is false-positive
 impl BlockPos {
-    pub fn up(self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y + 1,
-            z: self.z,
-        }
+    pub fn up(self) -> Option<Self> {
+        let (y, carry) = self.y.overflowing_add(1);
+        (!carry).then_some(y).map(|y| {
+            Self {
+                x: self.x,
+                y,
+                z: self.z,
+            }
+        })
     }
 
-    pub fn down(self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y - 1,
-            z: self.z,
-        }
+    pub fn down(self) -> Option<Self> {
+        let (y, carry) = self.y.overflowing_sub(1);
+        (!carry).then_some(y).map(|y| {
+            Self {
+                x: self.x,
+                y,
+                z: self.z,
+            }
+        })
     }
 
-    pub fn east(self) -> Self {
-        Self {
-            x: self.x + 1,
-            y: self.y,
-            z: self.z,
-        }
+    pub fn east(self) -> Option<Self> {
+        let (x, carry) = self.x.overflowing_add(1);
+        (!carry).then_some(x).map(|x| {
+            Self {
+                x,
+                y: self.y,
+                z: self.z,
+            }
+        })
     }
 
-    pub fn west(self) -> Self {
-        Self {
-            x: self.x - 1,
-            y: self.y,
-            z: self.z,
-        }
+    pub fn west(self) -> Option<Self> {
+        let (x, carry) = self.x.overflowing_sub(1);
+        (!carry).then_some(x).map(|x| {
+            Self {
+                x,
+                y: self.y,
+                z: self.z,
+            }
+        })
     }
 
-    pub fn south(self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y,
-            z: self.z + 1,
-        }
+    pub fn south(self) -> Option<Self> {
+        let (z, carry) = self.z.overflowing_add(1);
+        (!carry).then_some(z).map(|z| {
+            Self {
+                x: self.x,
+                y: self.y,
+                z,
+            }
+        })
     }
 
-    pub fn north(self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y,
-            z: self.z - 1,
-        }
+    pub fn north(self) -> Option<Self> {
+        let (z, carry) = self.z.overflowing_sub(1);
+        (!carry).then_some(z).map(|z| {
+            Self {
+                x: self.x,
+                y: self.y,
+                z,
+            }
+        })
+
     }
 }
 
-pub fn exposed(all: HashSet<BlockPos>) -> HashSet<BlockPos> {
+pub fn exposed(res: HashSet<BlockPos>) -> HashSet<BlockPos> {
     // TODO: convert this into Union-Find (crate named `petgraph` has its implementation)
-    let mut res = all;
     // returning true implies to be kept, false implies to be removed
-    res.retain(|it| {
-        let remove = all.contains(&it.up()) && all.contains(&it.down()) && all.contains(&it.west()) && all.contains(&it.east()) && all.contains(&it.north()) && all.contains(&it.south());
+    res.iter().filter(|it| {
+        let remove = it.up().map(|p| res.contains(&p)).unwrap_or(false)
+            && it.down().map(|p| res.contains(&p)).unwrap_or(false)
+            && it.west().map(|p| res.contains(&p)).unwrap_or(false)
+            && it.east().map(|p| res.contains(&p)).unwrap_or(false)
+            && it.north().map(|p| res.contains(&p)).unwrap_or(false)
+            && it.south().map(|p| res.contains(&p)).unwrap_or(false);
         !remove
-    });
-
-    res
+    }).copied().collect()
 }
 
 #[cfg(test)]
@@ -100,12 +122,12 @@ mod tests {
             y: 34,
             z: 59
         };
-        let up = x.up();
-        let down = x.down();
-        let north = x.north();
-        let south = x.south();
-        let east = x.east();
-        let west = x.west();
+        let up = x.up().unwrap();
+        let down = x.down().unwrap();
+        let north = x.north().unwrap();
+        let south = x.south().unwrap();
+        let east = x.east().unwrap();
+        let west = x.west().unwrap();
 
         let result = exposed(hashset![x, up, down, north, south, east, west]);
         assert_eq!(result.len(), 6);
@@ -123,7 +145,7 @@ mod tests {
             z: 16
         };
 
-        assert_eq!(x.up().down(), x);
+        assert_eq!(x.up().unwrap().down().unwrap(), x);
     }
 
     #[test]
@@ -135,7 +157,7 @@ mod tests {
             z: 0
         };
 
-        assert_eq!(x.south().north(), x);
+        assert_eq!(x.south().unwrap().north().unwrap(), x);
     }
 
     #[test]
@@ -147,6 +169,6 @@ mod tests {
             z: 19
         };
 
-        assert_eq!(x.west().east(), x);
+        assert_eq!(x.west().unwrap().east().unwrap(), x);
     }
 }
