@@ -1,5 +1,4 @@
 //! CPU-culling, using Union-Find
-use std::collections::{HashMap, HashSet};
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 pub struct BlockPos {
@@ -68,10 +67,10 @@ impl BlockPos {
     }
 }
 
-pub fn exposed(full_blocks: HashSet<BlockPos>) -> HashSet<BlockPos> {
-    let pos_to_index = Vec::from_iter(full_blocks);
+pub fn exposed(full_blocks: &[BlockPos]) -> Vec<&BlockPos> {
+    let pos_to_index = full_blocks;
     let mut index_to_occurrence = vec![0u8; pos_to_index.len()];
-    for pos in &pos_to_index {
+    for pos in pos_to_index {
         let (u, d, w, e, n, s) = (
             pos.up(), pos.down(), pos.west(),
             pos.east(), pos.north(), pos.south()
@@ -94,21 +93,21 @@ pub fn exposed(full_blocks: HashSet<BlockPos>) -> HashSet<BlockPos> {
 
 #[cfg(test)]
 mod tests {
-    use maplit::hashset;
     use crate::cpu_culling::{BlockPos, exposed};
 
     #[test]
     fn empty_returns_empty() {
-        assert!(exposed(hashset![]).is_empty());
+        assert!(exposed(&[]).is_empty());
     }
 
     #[test]
     fn single_returns_single() {
         let x = BlockPos::from_xyz(42, 35, 96).unwrap();
 
-        let result = exposed(hashset![x]);
+        let y = [x];
+        let result = exposed(&y);
         assert_eq!(result.len(), 1);
-        assert!(result.contains(&x));
+        assert!(result.contains(&&x));
     }
 
     #[test]
@@ -122,10 +121,11 @@ mod tests {
         let east = x.east();
         let west = x.west();
 
-        let result = exposed(hashset![x, up, down, north, south, east, west]);
+        let y = [x, up, down, north, south, east, west];
+        let result = exposed(&y);
         assert_eq!(result.len(), 6);
         for x in &[up, down, north, south, east, west] {
-            assert!(result.contains(x));
+            assert!(result.contains(&&x));
         }
     }
 
