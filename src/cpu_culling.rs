@@ -3,24 +3,29 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 pub struct BlockPos {
+    ///
     repr: u64,
 }
 
 // NOTE for IntelliJ user: "method is private" on `overflowing_add` method is false-positive
 impl BlockPos {
-    pub fn from_xyz(x: i32, y: i16, z: i32) -> Option<Self> {
-        const X_ABS_MAX: u64 = 0x3FF_FFFF;
-        const Y_ABS_MAX: u16 = 0x000_0FFF;
-        const Z_ABS_MAX: u64 = 0x3FF_FFFF;
+    const X_ABS_MAX: u32 = 0x3FF_FFFF;
+    const Y_ABS_MAX: u16 = 0x000_0FFF;
+    const Z_ABS_MAX: u32 = 0x3FF_FFFF;
 
-        if x.abs() as u64 <= X_ABS_MAX && y.abs() as u16 <= Y_ABS_MAX && z.abs() as u64 <= Z_ABS_MAX {
-            let repr = ((((x as i64) & 0x3FFFFFF) << 38) | (((z as i64) & 0x3FFFFFF) << 12) | ((y as i64) & 0xFFF)) as u64;
-            Some(Self {
-                repr
-            })
-        } else {
-            None
-        }
+    /// Create position. Returns [Err] if value is out of range.
+    ///
+    /// # Panics
+    /// Never.
+    pub fn from_xyz(x: i32, y: i16, z: i32) -> Result<Self, ()> {
+        let is_in_domain = x.abs() as u64 <= Self::X_ABS_MAX as u64 && y.abs() as u16 <= Self::Y_ABS_MAX && z.abs() as u64 <= Self::Z_ABS_MAX as u64;
+
+        is_in_domain.then_some(Self::compute_repr(x, y, z)).map(|repr| Self { repr }).ok_or(())
+    }
+
+    #[inline]
+    fn compute_repr(x: i32, y: i16, z: i32) -> u64 {
+        (((x as i64 & Self::X_ABS_MAX as i64) << 38) | ((z as i64 & Self::Z_ABS_MAX as i64) << 12) | (y & Self::Y_ABS_MAX as i16) as i64) as u64
     }
 
     #[inline]
@@ -38,46 +43,28 @@ impl BlockPos {
         ((self.repr << 26) >> 38) as i32
     }
 
-    pub fn up(self) -> Option<Self> {
-        let (y, carry) = self.y().overflowing_add(1);
-        (!carry).then_some(y).and_then(|y| {
-            Self::from_xyz(self.x(), y, self.z())
-        })
+    pub fn up(self) -> Self {
+        Self::from_xyz(self.x(), self.y() + 1, self.z()).unwrap()
     }
 
-    pub fn down(self) -> Option<Self> {
-        let (y, carry) = self.y().overflowing_sub(1);
-        (!carry).then_some(y).and_then(|y| {
-            Self::from_xyz(self.x(), y, self.z())
-        })
+    pub fn down(self) -> Self {
+        Self::from_xyz(self.x(), self.y() - 1, self.z()).unwrap()
     }
 
-    pub fn east(self) -> Option<Self> {
-        let (x, carry) = self.x().overflowing_add(1);
-        (!carry).then_some(x).and_then(|x| {
-            Self::from_xyz(x, self.y(), self.z())
-        })
+    pub fn east(self) -> Self {
+        Self::from_xyz(self.x() + 1, self.y(), self.z()).unwrap()
     }
 
-    pub fn west(self) -> Option<Self> {
-        let (x, carry) = self.x().overflowing_sub(1);
-        (!carry).then_some(x).and_then(|x| {
-            Self::from_xyz(x, self.y(), self.z())
-        })
+    pub fn west(self) -> Self {
+        Self::from_xyz(self.x() - 1, self.y(), self.z()).unwrap()
     }
 
-    pub fn south(self) -> Option<Self> {
-        let (z, carry) = self.z().overflowing_add(1);
-        (!carry).then_some(z).and_then(|z| {
-            Self::from_xyz(self.x(), self.y(), z)
-        })
+    pub fn south(self) -> Self {
+        Self::from_xyz(self.x(), self.y(), self.z() + 1).unwrap()
     }
 
-    pub fn north(self) -> Option<Self> {
-        let (z, carry) = self.z().overflowing_sub(1);
-        (!carry).then_some(z).and_then(|z| {
-            Self::from_xyz(self.x(), self.y(), z)
-        })
+    pub fn north(self) -> Self {
+        Self::from_xyz(self.x(), self.y(), self.z() - 1).unwrap()
     }
 }
 
@@ -86,8 +73,8 @@ pub fn exposed(full_blocks: HashSet<BlockPos>) -> HashSet<BlockPos> {
     let mut index_to_occurrence = vec![0u8; pos_to_index.len()];
     for pos in &pos_to_index {
         let (u, d, w, e, n, s) = (
-            pos.up().unwrap(), pos.down().unwrap(), pos.west().unwrap(),
-            pos.east().unwrap(), pos.north().unwrap(), pos.south().unwrap()
+            pos.up(), pos.down(), pos.west(),
+            pos.east(), pos.north(), pos.south()
         );
 
         for p in [u, d, w, e, n, s] {
@@ -128,12 +115,12 @@ mod tests {
     fn three_dimension_cross() {
         let x = BlockPos::from_xyz(21, 34, 59).unwrap();
 
-        let up = x.up().unwrap();
-        let down = x.down().unwrap();
-        let north = x.north().unwrap();
-        let south = x.south().unwrap();
-        let east = x.east().unwrap();
-        let west = x.west().unwrap();
+        let up = x.up();
+        let down = x.down();
+        let north = x.north();
+        let south = x.south();
+        let east = x.east();
+        let west = x.west();
 
         let result = exposed(hashset![x, up, down, north, south, east, west]);
         assert_eq!(result.len(), 6);
@@ -147,7 +134,7 @@ mod tests {
         // TODO: should be chosen randomly
         let x = BlockPos::from_xyz(39, 26, 16).unwrap();
 
-        assert_eq!(x.up().unwrap().down().unwrap(), x);
+        assert_eq!(x.up().down(), x);
     }
 
     #[test]
@@ -155,7 +142,7 @@ mod tests {
         // TODO: should be chosen randomly
         let x = BlockPos::from_xyz(99, 91, 0).unwrap();
 
-        assert_eq!(x.south().unwrap().north().unwrap(), x);
+        assert_eq!(x.south().north(), x);
     }
 
     #[test]
@@ -163,6 +150,6 @@ mod tests {
         // TODO: should be chosen randomly
         let x = BlockPos::from_xyz(128, 15, 19).unwrap();
 
-        assert_eq!(x.west().unwrap().east().unwrap(), x);
+        assert_eq!(x.west().east(), x);
     }
 }
