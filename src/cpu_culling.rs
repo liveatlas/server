@@ -17,7 +17,7 @@ impl BlockPos {
     /// # Panics
     /// Never.
     pub fn from_xyz(x: i32, y: i16, z: i32) -> Result<Self, ()> {
-        let is_in_domain = x.unsigned_abs() <= Self::X_ABS_MAX as u64 && y.unsigned_abs() <= Self::Y_ABS_MAX && z.unsigned_abs() <= Self::Z_ABS_MAX as u64;
+        let is_in_domain = x.unsigned_abs() <= Self::X_ABS_MAX && y.unsigned_abs() <= Self::Y_ABS_MAX && z.unsigned_abs() <= Self::Z_ABS_MAX;
 
         is_in_domain.then_some(Self::compute_repr(x, y, z)).map(|repr| Self { repr }).ok_or(())
     }
